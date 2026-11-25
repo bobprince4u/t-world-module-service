@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import authRoutes from "./routes/auth.routes.js";
 import contentRoutes from "./routes/content.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
+import tokenRoutes from "./routes/token.routes.js";
 
 import { env } from "./config/env.js";
 
@@ -55,6 +56,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/content", contentRoutes);
 
 app.use("/api/content", aiRoutes);
+
+app.use("/api/tokens", tokenRoutes);
 
 // 404 handler
 app.use((_req, res) => {
