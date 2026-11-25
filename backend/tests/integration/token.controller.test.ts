@@ -9,7 +9,9 @@ import { TokenTransaction } from "../../src/models/token-transaction.model.js";
 import {
   getTokenBalance,
   getTokenHistory,
+  convertUserTokens,
 } from "../../src/controllers/token.controller.js";
+import { ContractConversion } from "../../src/models/contract-conversion.model.js";
 
 let replicaSet: MongoMemoryReplSet;
 
@@ -23,10 +25,12 @@ type AuthUser = {
 function createHarness(
   authUser?: AuthUser,
   query: Record<string, string> = {},
+  requestBody: Record<string, unknown> = {},
 ) {
   const req = {
     authUser,
     query,
+    body: requestBody,
   } as unknown as Request;
 
   let statusCode = 200;
@@ -63,7 +67,6 @@ function createHarness(
     },
   };
 }
-
 let userId: string;
 let otherUserId: string;
 let authUser: AuthUser;
@@ -79,7 +82,11 @@ before(async () => {
 });
 
 beforeEach(async () => {
-  await Promise.all([User.deleteMany({}), TokenTransaction.deleteMany({})]);
+  await Promise.all([
+    User.deleteMany({}),
+    TokenTransaction.deleteMany({}),
+    ContractConversion.deleteMany({}),
+  ]);
 
   const user = await User.create({
     firebaseUid: "firebase-user-1",
@@ -206,4 +213,104 @@ test("getTokenHistory rejects invalid page values", async () => {
 
   assert.equal(h.statusCode, 400);
   assert.deepEqual(h.body, { message: "Invalid page value" });
+});
+
+test("convertUserTokens converts tokens and returns the conversion result", async () => {
+  const h = createHarness(
+    authUser,
+    {},
+    {
+      toAsset: "MOCK_USDT",
+      amount: 100,
+    },
+  );
+
+  // Give this user enough tokens for the conversion.
+  await User.updateOne({ _id: userId }, { $set: { tokenBalance: 150 } });
+
+  await convertUserTokens(h.req, h.res, h.next);
+
+  assert.equal(h.statusCode, 200);
+
+  const response = h.body as {
+    message: string;
+    convertedAmount: string;
+    tokenBalance: number;
+    txHashMock: string;
+  };
+
+  assert.equal(response.message, "Token conversion successful");
+  assert.equal(response.convertedAmount, "1 MOCK_USDT");
+  assert.equal(response.tokenBalance, 50);
+  assert.match(response.txHashMock, /^0x[a-f0-9]{64}$/);
+
+  const user = await User.findById(userId).lean();
+  assert.equal(user?.tokenBalance, 50);
+
+  assert.equal(await ContractConversion.countDocuments({ userId }), 1);
+  assert.equal(
+    await TokenTransaction.countDocuments({ userId, type: "CONVERT" }),
+    1,
+  );
+});
+
+test("convertUserTokens rejects unauthenticated requests", async () => {
+  const h = createHarness(
+    undefined,
+    {},
+    {
+      toAsset: "MOCK_USDT",
+      amount: 100,
+    },
+  );
+
+  await convertUserTokens(h.req, h.res, h.next);
+
+  assert.equal(h.statusCode, 401);
+  assert.deepEqual(h.body, { message: "Authentication required" });
+});
+
+test("convertUserTokens rejects invalid conversion input", async () => {
+  const h = createHarness(
+    authUser,
+    {},
+    {
+      toAsset: "INVALID_ASSET",
+      amount: -10,
+    },
+  );
+
+  await convertUserTokens(h.req, h.res, h.next);
+
+  assert.equal(h.statusCode, 400);
+
+  const response = h.body as { message: string };
+  assert.equal(response.message, "Invalid conversion request");
+
+  const user = await User.findById(userId).lean();
+  assert.equal(user?.tokenBalance, 25);
+});
+
+test("convertUserTokens rejects insufficient token balance", async () => {
+  const h = createHarness(
+    authUser,
+    {},
+    {
+      toAsset: "MOCK_USDT",
+      amount: 100,
+    },
+  );
+
+  await convertUserTokens(h.req, h.res, h.next);
+
+  assert.equal(h.statusCode, 400);
+  assert.deepEqual(h.body, { message: "Insufficient token balance" });
+
+  const user = await User.findById(userId).lean();
+  assert.equal(user?.tokenBalance, 25);
+  assert.equal(await ContractConversion.countDocuments({ userId }), 0);
+  assert.equal(
+    await TokenTransaction.countDocuments({ userId, type: "CONVERT" }),
+    0,
+  );
 });
