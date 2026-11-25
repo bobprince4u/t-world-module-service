@@ -59,11 +59,27 @@ const provider: AiProvider = {
   },
 };
 
-test("returns a summary for authenticated valid input", async () => {
-  const handler = createSummarizeController(provider, async () => ({
-    title: "Test title",
-    body: "Test body",
-  }));
+test("returns a summary and reward details for authenticated valid input", async () => {
+  const handler = createSummarizeController(
+    provider,
+    async () => ({
+      title: "Test title",
+      body: "Test body",
+    }),
+    15_000,
+    async (input) => {
+      assert.equal(input.contentId, "507f1f77bcf86cd799439011");
+      assert.equal(input.userId, "user-1");
+      assert.equal(input.output, "Summary: Test title");
+      assert.equal(input.promptVersion, "v1");
+
+      return {
+        aiRunId: "ai-run-1",
+        tokensAwarded: 5,
+        tokenBalance: 5,
+      };
+    },
+  );
 
   const result = await invokeController(handler, {
     id: "507f1f77bcf86cd799439011",
@@ -71,7 +87,12 @@ test("returns a summary for authenticated valid input", async () => {
   });
 
   assert.equal(result.statusCode, 200);
-  assert.deepEqual(result.responseBody, { summary: "Summary: Test title" });
+  assert.deepEqual(result.responseBody, {
+    summary: "Summary: Test title",
+    aiRunId: "ai-run-1",
+    tokensAwarded: 5,
+    tokenBalance: 5,
+  });
 });
 
 test("rejects a malformed content ID", async () => {

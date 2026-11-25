@@ -3,6 +3,19 @@ import type { AiProvider } from "../services/ai/ai-provider.js";
 import { Content } from "../models/content.model.js";
 import { aiSummarySchema } from "../validators/ai-summary.validation.js";
 import { AiTimeoutError, withTimeout } from "../services/ai/with-timeout.js";
+import { awardAiReward } from "../services/ai/award-ai-reward.js";
+
+type AwardReward = (input: {
+  contentId: string;
+  userId: string;
+  output: string;
+  latencyMs: number;
+  promptVersion: string;
+}) => Promise<{
+  aiRunId: string;
+  tokensAwarded: number;
+  tokenBalance: number;
+}>;
 
 type FindContent = (id: string) => Promise<{
   title: string;
@@ -18,6 +31,7 @@ export function createSummarizeController(
   provider: AiProvider,
   lookupContent: FindContent = findContent,
   timeoutMs = 15_000,
+  awardReward: AwardReward = awardAiReward,
 ): RequestHandler {
   return async (req, res, next) => {
     try {
@@ -53,8 +67,12 @@ export function createSummarizeController(
         return;
       }
 
+      let summary: string;
+      let latencyMs: number;
+      const startedAt = Date.now();
+
       try {
-        const summary = await withTimeout(
+        summary = await withTimeout(
           provider.summarize({
             title: content.title,
             body: content.body,
@@ -63,7 +81,7 @@ export function createSummarizeController(
           timeoutMs,
         );
 
-        res.status(200).json({ summary });
+        latencyMs = Date.now() - startedAt;
       } catch (error) {
         if (error instanceof AiTimeoutError) {
           res.status(504).json({ message: "AI provider timed out" });
@@ -71,7 +89,23 @@ export function createSummarizeController(
         }
 
         res.status(502).json({ message: "AI provider failed" });
+        return;
       }
+
+      const reward = await awardReward({
+        contentId: id,
+        userId: user.id,
+        output: summary,
+        latencyMs,
+        promptVersion: "v1",
+      });
+
+      res.status(200).json({
+        summary,
+        aiRunId: reward.aiRunId,
+        tokensAwarded: reward.tokensAwarded,
+        tokenBalance: reward.tokenBalance,
+      });
     } catch (error) {
       next(error);
     }
