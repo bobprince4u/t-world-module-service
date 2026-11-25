@@ -14,3 +14,9 @@ test("POST /api/content rejects unauthenticated requests", async () => {
 
   assert.equal(response.status, 401);
 });
+
+test("GET /api/content rejects an invalid page value", async () => {
+  const response = await request(app).get("/api/content?page=0");
+
+  assert.equal(response.status, 400);
+});
