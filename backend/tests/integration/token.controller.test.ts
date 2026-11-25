@@ -10,6 +10,7 @@ import {
   getTokenBalance,
   getTokenHistory,
   convertUserTokens,
+  withdrawUserTokens,
 } from "../../src/controllers/token.controller.js";
 import { ContractConversion } from "../../src/models/contract-conversion.model.js";
 
@@ -313,4 +314,64 @@ test("convertUserTokens rejects insufficient token balance", async () => {
     await TokenTransaction.countDocuments({ userId, type: "CONVERT" }),
     0,
   );
+});
+test("withdrawUserTokens withdraws the authenticated user's converted assets", async () => {
+  const conversion = await ContractConversion.create({
+    userId,
+    fromToken: "TOKEN",
+    toAsset: "MOCK_USDT",
+    amount: 100,
+    exchangeRate: 0.01,
+    txHashMock: `0x${"d".repeat(64)}`,
+    status: "SUCCESS",
+  });
+
+  const h = createHarness(authUser);
+
+  await withdrawUserTokens(h.req, h.res, h.next);
+
+  assert.equal(h.statusCode, 200);
+
+  const response = h.body as {
+    status: string;
+    network: string;
+    txHashMock: string;
+  };
+
+  assert.deepEqual(response, {
+    status: "SUCCESS",
+    network: "Ethereum",
+    txHashMock: response.txHashMock,
+  });
+
+  assert.match(response.txHashMock, /^0x[a-f0-9]{64}$/);
+
+  const updatedConversion = await ContractConversion.findById(conversion._id);
+
+  assert.equal(updatedConversion?.status, "SUCCESS");
+  assert.equal(updatedConversion?.txHashMock, `0x${"d".repeat(64)}`);
+  assert.equal(updatedConversion?.withdrawalStatus, "WITHDRAWN");
+  assert.equal(updatedConversion?.withdrawalNetwork, "Ethereum");
+  assert.equal(updatedConversion?.withdrawalTxHashMock, response.txHashMock);
+  assert.ok(updatedConversion?.withdrawnAt instanceof Date);
+});
+
+test("withdrawUserTokens rejects unauthenticated requests", async () => {
+  const h = createHarness();
+
+  await withdrawUserTokens(h.req, h.res, h.next);
+
+  assert.equal(h.statusCode, 401);
+  assert.deepEqual(h.body, { message: "Authentication required" });
+});
+
+test("withdrawUserTokens rejects when no converted assets are eligible", async () => {
+  const h = createHarness(authUser);
+
+  await withdrawUserTokens(h.req, h.res, h.next);
+
+  assert.equal(h.statusCode, 400);
+  assert.deepEqual(h.body, {
+    message: "No eligible converted assets to withdraw",
+  });
 });

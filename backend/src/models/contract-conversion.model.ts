@@ -10,6 +10,10 @@ interface ContractConversionAttributes {
   exchangeRate: number;
   txHashMock: string;
   status: string;
+  withdrawalStatus?: "WITHDRAWN";
+  withdrawalNetwork?: string;
+  withdrawalTxHashMock?: string;
+  withdrawnAt?: Date;
 }
 
 const contractConversionSchema =
@@ -49,6 +53,21 @@ const contractConversionSchema =
         type: String,
         required: true,
         trim: true,
+      },
+      withdrawalStatus: {
+        type: String,
+        enum: ["WITHDRAWN"],
+      },
+      withdrawalNetwork: {
+        type: String,
+        trim: true,
+      },
+      withdrawalTxHashMock: {
+        type: String,
+        trim: true,
+      },
+      withdrawnAt: {
+        type: Date,
       },
     },
     {

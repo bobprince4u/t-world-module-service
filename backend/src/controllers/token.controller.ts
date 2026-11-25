@@ -3,6 +3,7 @@ import { User } from "../models/user.model.js";
 import { TokenTransaction } from "../models/token-transaction.model.js";
 import { convertTokens } from "../services/tokens/convert-tokens.js";
 import { tokenConversionSchema } from "../validators/token-conversion.validation.js";
+import { withdrawTokens } from "../services/tokens/withdraw-tokens.js";
 
 export const getTokenBalance: RequestHandler = async (req, res, next) => {
   try {
@@ -110,6 +111,34 @@ export const convertUserTokens: RequestHandler = async (req, res, next) => {
           res.status(404).json({ message: "User profile not found" });
           return;
         }
+      }
+
+      throw error;
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+export const withdrawUserTokens: RequestHandler = async (req, res, next) => {
+  try {
+    const user = req.authUser;
+
+    if (!user) {
+      res.status(401).json({ message: "Authentication required" });
+      return;
+    }
+
+    try {
+      const result = await withdrawTokens({ userId: user.id });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "No eligible converted assets to withdraw"
+      ) {
+        res.status(400).json({ message: error.message });
+        return;
       }
 
       throw error;

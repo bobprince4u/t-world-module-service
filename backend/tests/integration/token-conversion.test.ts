@@ -7,6 +7,7 @@ import { User } from "../../src/models/user.model.js";
 import { TokenTransaction } from "../../src/models/token-transaction.model.js";
 import { ContractConversion } from "../../src/models/contract-conversion.model.js";
 import { convertTokens } from "../../src/services/tokens/convert-tokens.js";
+import { withdrawTokens } from "../../src/services/tokens/withdraw-tokens.js";
 
 let replicaSet: MongoMemoryReplSet;
 let userId: string;
@@ -102,4 +103,89 @@ test("rejects conversion when the user has insufficient tokens", async () => {
   assert.equal(user?.tokenBalance, 250);
   assert.equal(await ContractConversion.countDocuments({ userId }), 0);
   assert.equal(await TokenTransaction.countDocuments({ userId }), 0);
+});
+
+test("withdraws converted assets and preserves the original conversion hash", async () => {
+  const originalHash = `0x${"a".repeat(64)}`;
+
+  await ContractConversion.create({
+    userId,
+    fromToken: "TOKEN",
+    toAsset: "MOCK_USDT",
+    amount: 100,
+    exchangeRate: 0.01,
+    txHashMock: originalHash,
+    status: "SUCCESS",
+  });
+
+  const result = await withdrawTokens({ userId });
+
+  assert.equal(result.status, "SUCCESS");
+  assert.equal(result.network, "Ethereum");
+  assert.match(result.txHashMock, /^0x[a-f0-9]{64}$/);
+
+  const conversion = await ContractConversion.findOne({ userId }).lean();
+
+  assert.equal(conversion?.status, "SUCCESS");
+  assert.equal(conversion?.txHashMock, originalHash);
+  assert.equal(conversion?.withdrawalStatus, "WITHDRAWN");
+  assert.equal(conversion?.withdrawalNetwork, "Ethereum");
+  assert.equal(conversion?.withdrawalTxHashMock, result.txHashMock);
+  assert.ok(conversion?.withdrawnAt instanceof Date);
+});
+
+test("rejects a second withdrawal of already withdrawn assets", async () => {
+  await ContractConversion.create({
+    userId,
+    fromToken: "TOKEN",
+    toAsset: "MOCK_USDT",
+    amount: 100,
+    exchangeRate: 0.01,
+    txHashMock: `0x${"b".repeat(64)}`,
+    status: "SUCCESS",
+  });
+
+  await withdrawTokens({ userId });
+
+  await assert.rejects(
+    withdrawTokens({ userId }),
+    /No eligible converted assets to withdraw/,
+  );
+});
+
+test("rejects withdrawal when no eligible conversions exist", async () => {
+  await assert.rejects(
+    withdrawTokens({ userId }),
+    /No eligible converted assets to withdraw/,
+  );
+});
+
+test("does not withdraw another user's converted assets", async () => {
+  const otherUser = await User.create({
+    firebaseUid: "other-withdrawal-user",
+    email: "other-withdrawal@example.com",
+    role: "user",
+    tokenBalance: 100,
+  });
+
+  await ContractConversion.create({
+    userId: otherUser.id,
+    fromToken: "TOKEN",
+    toAsset: "MOCK_USDT",
+    amount: 100,
+    exchangeRate: 0.01,
+    txHashMock: `0x${"c".repeat(64)}`,
+    status: "SUCCESS",
+  });
+
+  await assert.rejects(
+    withdrawTokens({ userId }),
+    /No eligible converted assets to withdraw/,
+  );
+
+  const conversion = await ContractConversion.findOne({
+    userId: otherUser.id,
+  }).lean();
+
+  assert.equal(conversion?.withdrawalStatus, undefined);
 });
