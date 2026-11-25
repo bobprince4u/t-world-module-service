@@ -4,6 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.routes.js";
+import contentRoutes from "./routes/content.routes.js";
 
 import { env } from "./config/env.js";
 
@@ -49,6 +50,8 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+
+app.use("/api/content", contentRoutes);
 
 // 404 handler
 app.use((_req, res) => {
