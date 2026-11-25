@@ -148,3 +148,23 @@ test("GET /api/content/:id returns 400 for a malformed ID", async () => {
   assert.equal(response.status, 400);
   assert.equal(response.body.message, "Invalid content ID");
 });
+
+test("POST /api/content/:id/ai/summarize rejects unauthenticated requests", async () => {
+  const id = new mongoose.Types.ObjectId().toString();
+
+  const response = await request(app)
+    .post(`/api/content/${id}/ai/summarize`)
+    .send({ tone: "friendly", length: "short" });
+
+  assert.equal(response.status, 401);
+});
+
+test("POST /api/content/:id/ai/summarize rejects a malformed content ID", async () => {
+  const response = await request(app)
+    .post("/api/content/not-an-id/ai/summarize")
+    .send({ tone: "friendly", length: "short" });
+
+  // Authentication runs before the controller, so without a valid token
+  // this should be 401 rather than 400.
+  assert.equal(response.status, 401);
+});
