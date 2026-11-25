@@ -118,3 +118,33 @@ test("GET /api/content sorts newest items first", async () => {
   assert.equal(response.body.items[0].title, "Newer content");
   assert.equal(response.body.items[1].title, "Older content");
 });
+
+test("GET /api/content/:id returns an existing content item", async () => {
+  const created = await Content.create({
+    title: "Test content",
+    body: "Content body",
+    tags: ["test"],
+    createdBy: new mongoose.Types.ObjectId(),
+  });
+
+  const response = await request(app).get(`/api/content/${created.id}`);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.content.title, "Test content");
+});
+
+test("GET /api/content/:id returns 404 for a valid but nonexistent ID", async () => {
+  const id = new mongoose.Types.ObjectId().toString();
+
+  const response = await request(app).get(`/api/content/${id}`);
+
+  assert.equal(response.status, 404);
+  assert.equal(response.body.message, "Content not found");
+});
+
+test("GET /api/content/:id returns 400 for a malformed ID", async () => {
+  const response = await request(app).get("/api/content/not-an-id");
+
+  assert.equal(response.status, 400);
+  assert.equal(response.body.message, "Invalid content ID");
+});

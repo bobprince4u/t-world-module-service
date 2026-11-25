@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import { Content } from "../models/content.model.js";
 import { createContentSchema } from "../validators/content.validation.js";
 import { contentQuerySchema } from "../validators/content-query.validation.js";
+import { contentIdSchema } from "../validators/content-id.validation.js";
 
 type CreateContentRecord = (input: {
   title: string;
@@ -98,6 +99,33 @@ export const listContent: RequestHandler = async (req, res, next) => {
         totalPages: Math.ceil(total / PAGE_SIZE),
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getContentById: RequestHandler = async (req, res, next) => {
+  try {
+    const parsed = contentIdSchema.safeParse(req.params);
+
+    if (!parsed.success) {
+      res.status(400).json({
+        message: "Invalid content ID",
+        errors: parsed.error.issues,
+      });
+      return;
+    }
+
+    const content = await Content.findOne({
+      _id: parsed.data.id,
+    } as never).lean();
+
+    if (!content) {
+      res.status(404).json({ message: "Content not found" });
+      return;
+    }
+
+    res.status(200).json({ content });
   } catch (error) {
     next(error);
   }
