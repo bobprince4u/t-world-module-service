@@ -1,75 +1,82 @@
-# React + TypeScript + Vite
+# T-World Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend is a React and TypeScript application built with Vite and Tailwind CSS. It provides the user interface for authentication, content management, AI summarization, token rewards, conversions, withdrawals, and administrator token balance monitoring.
 
-Currently, two official plugins are available:
+## Technology Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React
+- TypeScript
+- Vite
+- Tailwind CSS
+- Firebase Authentication
 
-## React Compiler
+## Prerequisites
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Node.js
+- npm
+- A configured Firebase project
+- A running T-World backend API
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+From the `frontend` directory:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+## Environment Configuration
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create a `.env.local` file and provide the Firebase client configuration expected by `src/lib/firebase.ts`.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The frontend also uses the backend API through its API helper in `src/lib/api.ts`.
 
+Do not commit private credentials or environment files.
+
+## Development
+
+Start the development server:
+
+```bash
+npm run dev
 ```
+
+Vite will display the local development URL, usually:
+
+```text
+http://localhost:5173
+```
+
+## Available Scripts
+
+| Command           | Description                                         |
+| ----------------- | --------------------------------------------------- |
+| `npm run dev`     | Start the development server                        |
+| `npm run build`   | Run TypeScript checks and create a production build |
+| `npm run lint`    | Run ESLint                                          |
+| `npm run preview` | Preview the production build                        |
+
+## Application Features
+
+### User Features
+
+- Firebase authentication.
+- View and create content.
+- Generate AI summaries.
+- View token balance.
+- View token transaction history.
+- Convert tokens into simulated digital assets.
+- Request simulated withdrawals.
+
+### Administrator Features
+
+- View registered users.
+- Monitor user roles and token balances.
+
+## Backend Integration
+
+The frontend communicates with the Express backend through the API helper.
+
+Firebase ID tokens are attached to authenticated requests.
+
+Refer to the root [README](../README.md) and [API Documentation](../docs/api.md) for backend setup and endpoint details.
