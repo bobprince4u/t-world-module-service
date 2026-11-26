@@ -21,6 +21,15 @@ const envSchema = z.object({
 
   CLIENT_URL: z.string().url().default("http://localhost:5173"),
 
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+
+  AWS_REGION: z.string().optional(),
+  AWS_S3_BUCKET: z.string().optional(),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+
   AI_PROVIDER: z.enum(["mock", "gemini"]).default("mock"),
 });
 

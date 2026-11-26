@@ -7,6 +7,8 @@ import authRoutes from "./routes/auth.routes.js";
 import contentRoutes from "./routes/content.routes.js";
 import aiRoutes from "./routes/ai.routes.js";
 import tokenRoutes from "./routes/token.routes.js";
+import mediaRoutes from "./routes/media.routes.js";
+import multer from "multer";
 
 import { env } from "./config/env.js";
 
@@ -59,6 +61,8 @@ app.use("/api/content", aiRoutes);
 
 app.use("/api/tokens", tokenRoutes);
 
+app.use("/api/media", mediaRoutes);
+
 // 404 handler
 app.use((_req, res) => {
   res.status(404).json({
@@ -71,6 +75,16 @@ app.use((_req, res) => {
 const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
   if (res.headersSent) {
     return next(error);
+  }
+  if (error instanceof multer.MulterError) {
+    res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({
+      success: false,
+      message:
+        error.code === "LIMIT_FILE_SIZE"
+          ? "File exceeds the 10 MB upload limit"
+          : error.message,
+    });
+    return;
   }
 
   console.error("Application error:", error);
