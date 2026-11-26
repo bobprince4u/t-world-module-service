@@ -11,6 +11,7 @@ import {
   getTokenHistory,
   convertUserTokens,
   withdrawUserTokens,
+  getAllUserTokenBalances,
 } from "../../src/controllers/token.controller.js";
 import { ContractConversion } from "../../src/models/contract-conversion.model.js";
 
@@ -374,4 +375,53 @@ test("withdrawUserTokens rejects when no converted assets are eligible", async (
   assert.deepEqual(h.body, {
     message: "No eligible converted assets to withdraw",
   });
+});
+test("getAllUserTokenBalances returns paginated user balances", async () => {
+  await User.create({
+    firebaseUid: "firebase-admin-1",
+    email: "admin@example.com",
+    role: "admin",
+    tokenBalance: 500,
+  });
+
+  const h = createHarness({ ...authUser, role: "admin" }, { page: "1" });
+
+  await getAllUserTokenBalances(h.req, h.res, h.next);
+
+  assert.equal(h.statusCode, 200);
+
+  const response = h.body as {
+    users: Array<{
+      email: string;
+      role: string;
+      tokenBalance: number;
+    }>;
+    pagination: {
+      page: number;
+      pageSize: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+
+  assert.equal(response.users.length, 3);
+  assert.equal(response.pagination.total, 3);
+  assert.equal(response.pagination.page, 1);
+  assert.equal(response.pagination.pageSize, 10);
+  assert.equal(response.pagination.totalPages, 1);
+
+  assert.ok(
+    response.users.every(
+      (user) =>
+        typeof user.email === "string" && typeof user.tokenBalance === "number",
+    ),
+  );
+});
+
+test("getAllUserTokenBalances rejects unauthenticated requests", async () => {
+  const h = createHarness();
+
+  await getAllUserTokenBalances(h.req, h.res, h.next);
+
+  assert.equal(h.statusCode, 200);
 });

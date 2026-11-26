@@ -1,13 +1,22 @@
 import { useCallback, useState } from "react";
 import { signIn, signUp, logOut } from "./lib/auth";
 import { apiRequest } from "./lib/api";
-
+import { auth } from "./lib/firebase";
 interface Profile {
   email: string;
   role: string;
   tokenBalance: number;
 }
 
+interface AdminUsersResponse {
+  users: Profile[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
 interface ContentItem {
   _id: string;
   title: string;
@@ -75,6 +84,10 @@ function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
 
+  const [adminUsers, setAdminUsers] = useState<Profile[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState("");
+
   const [contents, setContents] = useState<ContentItem[]>([]);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState("");
@@ -100,6 +113,9 @@ function App() {
   const [tokenError, setTokenError] = useState("");
 
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaMessage, setMediaMessage] = useState("");
+  const [mediaLoading, setMediaLoading] = useState(false);
 
   const fetchContents = useCallback(async () => {
     setContentLoading(true);
@@ -132,6 +148,10 @@ function App() {
       const response = await apiRequest<{ data: Profile }>("/auth/me");
       setProfile(response.data);
       setAuthenticated(true);
+
+      if (response.data.role === "admin") {
+        await fetchAdminUsers();
+      }
       await fetchContents();
       await fetchTokenHistory();
     } catch (err) {
@@ -218,6 +238,22 @@ function App() {
     }
   }
 
+  async function fetchAdminUsers() {
+    setAdminUsersLoading(true);
+    setAdminUsersError("");
+
+    try {
+      const response = await apiRequest<AdminUsersResponse>("/tokens/users");
+      setAdminUsers(response.users);
+    } catch (err) {
+      setAdminUsersError(
+        err instanceof Error ? err.message : "Failed to load user balances",
+      );
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  }
+
   async function handleConvert(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTokenLoading(true);
@@ -276,6 +312,69 @@ function App() {
     }
   }
 
+  async function handleMediaUpload() {
+    if (!mediaFile) {
+      setMediaMessage("Choose a file first.");
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      setMediaMessage("You must be signed in.");
+      return;
+    }
+
+    setMediaLoading(true);
+    setMediaMessage("");
+
+    try {
+      const token = await user.getIdToken();
+      const apiUrl =
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const formData = new FormData();
+      formData.append("file", mediaFile);
+
+      const uploadResponse = await fetch(`${apiUrl}/media/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const uploadData = await uploadResponse.json();
+
+      if (!uploadResponse.ok) {
+        throw new Error(uploadData.message || "Upload failed");
+      }
+
+      const mediaId = uploadData.media?._id;
+      if (!mediaId) {
+        throw new Error("Upload succeeded but no media ID was returned.");
+      }
+
+      const promoteResponse = await fetch(
+        `${apiUrl}/media/${mediaId}/promote`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      const promoteData = await promoteResponse.json();
+
+      if (!promoteResponse.ok) {
+        throw new Error(promoteData.message || "S3 promotion failed");
+      }
+
+      setMediaMessage("Upload and S3 promotion succeeded.");
+    } catch (err) {
+      setMediaMessage(
+        err instanceof Error ? err.message : "Media upload failed.",
+      );
+    } finally {
+      setMediaLoading(false);
+    }
+  }
+
   async function handleLogout() {
     await logOut();
     setAuthenticated(false);
@@ -313,6 +412,57 @@ function App() {
               </button>
             </div>
           </header>
+
+          {profile?.role === "admin" && (
+            <section className="mb-8 rounded-xl bg-white p-6 shadow-sm">
+              <div className="mb-5 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  User Token Balances
+                </h2>
+
+                <button
+                  onClick={fetchAdminUsers}
+                  disabled={adminUsersLoading}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {adminUsersLoading ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+
+              {adminUsersError && (
+                <p className="mb-4 text-sm text-red-600">{adminUsersError}</p>
+              )}
+
+              {adminUsersLoading && adminUsers.length === 0 ? (
+                <p className="text-sm text-slate-500">Loading users...</p>
+              ) : adminUsers.length === 0 ? (
+                <p className="text-sm text-slate-500">No users found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="border-b text-slate-500">
+                        <th className="py-3 pr-4">Email</th>
+                        <th className="py-3 pr-4">Role</th>
+                        <th className="py-3">Token Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminUsers.map((user) => (
+                        <tr key={user.email} className="border-b last:border-0">
+                          <td className="py-3 pr-4">{user.email}</td>
+                          <td className="py-3 pr-4 capitalize">{user.role}</td>
+                          <td className="py-3 font-medium">
+                            {user.tokenBalance} tokens
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="mb-8 rounded-xl bg-white p-6 shadow-sm">
             <h2 className="mb-5 text-lg font-semibold text-slate-900">
@@ -368,6 +518,32 @@ function App() {
                 {creating ? "Creating..." : "Create content"}
               </button>
             </form>
+          </section>
+
+          <section className="mb-6 rounded-xl bg-white p-6 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold">Media upload test</h2>
+
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) =>
+                setMediaFile(event.target.files?.[0] ?? null)
+              }
+              className="mb-4 block w-full text-sm"
+            />
+
+            <button
+              type="button"
+              onClick={handleMediaUpload}
+              disabled={!mediaFile || mediaLoading}
+              className="rounded-lg bg-slate-900 px-5 py-2.5 font-medium text-white disabled:opacity-50"
+            >
+              {mediaLoading
+                ? "Uploading and promoting..."
+                : "Upload and promote to S3"}
+            </button>
+
+            {mediaMessage && <p className="mt-3 text-sm">{mediaMessage}</p>}
           </section>
 
           <section className="mb-6 rounded-xl bg-white p-6 shadow-sm">

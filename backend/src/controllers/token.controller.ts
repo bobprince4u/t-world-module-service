@@ -147,3 +147,41 @@ export const withdrawUserTokens: RequestHandler = async (req, res, next) => {
     next(error);
   }
 };
+export const getAllUserTokenBalances: RequestHandler = async (
+  req,
+  res,
+  next,
+) => {
+  try {
+    const page = Number(req.query.page ?? 1);
+
+    if (!Number.isInteger(page) || page < 1) {
+      res.status(400).json({ message: "Invalid page value" });
+      return;
+    }
+
+    const pageSize = 10;
+
+    const [users, total] = await Promise.all([
+      User.find()
+        .select("email role tokenBalance createdAt")
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * pageSize)
+        .limit(pageSize)
+        .lean(),
+      User.countDocuments(),
+    ]);
+
+    res.status(200).json({
+      users,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
