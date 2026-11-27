@@ -147,6 +147,9 @@ test("returns 504 when the provider times out", async () => {
     slowProvider,
     async () => ({ title: "Title", body: "Body" }),
     5,
+    async () => {
+      assert.fail("Reward must not be awarded when the provider times out");
+    },
   );
 
   const result = await invokeController(handler, {
@@ -164,11 +167,14 @@ test("returns 502 when the provider fails", async () => {
     },
   };
 
-  const handler = createSummarizeController(failingProvider, async () => ({
-    title: "Title",
-    body: "Body",
-  }));
-
+  const handler = createSummarizeController(
+    failingProvider,
+    async () => ({ title: "Title", body: "Body" }),
+    15_000,
+    async () => {
+      assert.fail("Reward must not be awarded when the provider fails");
+    },
+  );
   const result = await invokeController(handler, {
     id: "507f1f77bcf86cd799439011",
     body: {},
