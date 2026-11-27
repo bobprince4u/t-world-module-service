@@ -384,7 +384,7 @@ function App() {
 
   if (authenticated) {
     return (
-      <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-8">
+      <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-8">
         <div className="mx-auto max-w-6xl">
           <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -513,7 +513,7 @@ function App() {
               <button
                 type="submit"
                 disabled={creating}
-                className="rounded-lg bg-slate-900 px-5 py-2.5 font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+                className="rounded-lg bg-indigo-950 px-5 py-2.5 font-medium text-white hover:bg-indigo-900 disabled:opacity-50"
               >
                 {creating ? "Creating..." : "Create content"}
               </button>
@@ -536,7 +536,7 @@ function App() {
               type="button"
               onClick={handleMediaUpload}
               disabled={!mediaFile || mediaLoading}
-              className="rounded-lg bg-slate-900 px-5 py-2.5 font-medium text-white disabled:opacity-50"
+              className="rounded-lg bg-indigo-950 px-5 py-2.5 font-medium text-white disabled:opacity-50"
             >
               {mediaLoading
                 ? "Uploading and promoting..."
@@ -585,7 +585,7 @@ function App() {
               Token management
             </h2>
 
-            <div className="mb-6 rounded-lg bg-slate-900 p-5 text-white">
+            <div className="mb-6 rounded-lg bg-teal-800 p-5 text-white">
               <p className="text-sm text-slate-300">Available balance</p>
               <p className="mt-1 text-3xl font-bold">
                 {profile?.tokenBalance ?? 0} tokens
@@ -635,7 +635,7 @@ function App() {
               <button
                 type="submit"
                 disabled={tokenLoading}
-                className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
               >
                 {tokenLoading ? "Processing..." : "Convert tokens"}
               </button>
@@ -676,7 +676,7 @@ function App() {
               <h3 className="font-semibold">Transaction history</h3>
               <button
                 onClick={() => void fetchTokenHistory()}
-                className="text-sm font-medium text-blue-600 hover:underline"
+                className="text-sm font-medium text-indigo-600 hover:underline"
               >
                 Refresh
               </button>
@@ -819,7 +819,7 @@ function App() {
                         {item.tags.map((tag) => (
                           <span
                             key={tag}
-                            className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700"
+                            className="rounded-full bg-indigo-50 px-3 py-1 text-xs text-indigo-700"
                           >
                             {tag}
                           </span>
@@ -830,7 +830,7 @@ function App() {
                       <button
                         onClick={() => void handleSummarize(item._id)}
                         disabled={summarizingId !== null}
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                       >
                         {summarizingId === item._id
                           ? "Generating summary..."
